@@ -3,7 +3,7 @@ name: Auto Login to Lunes Dashboard
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 1 * * *'  # 每天 UTC 1:00 执行
+    - cron: '0 1 * * *'  # 每天 UTC 1:00 执行一次
 
 jobs:
   login:
@@ -27,8 +27,4 @@ jobs:
           EMAIL: ${{ secrets.EMAIL }}
           PASSWORD: ${{ secrets.PASSWORD }}
 
-      - name: Upload screenshot
-        uses: actions/upload-artifact@v3
-        with:
-          name: login-screenshot
-          path: login-success.png
+      # 🚫 不使用 upload-artifact，避免报错
