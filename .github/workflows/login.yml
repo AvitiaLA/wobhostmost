@@ -28,7 +28,7 @@ jobs:
           PASSWORD: ${{ secrets.PASSWORD }}
 
       - name: Upload screenshot
-        uses: actions/upload-artifact@v3.1.3
+        uses: actions/upload-artifact@v3
         with:
           name: login-screenshot
           path: login-success.png
