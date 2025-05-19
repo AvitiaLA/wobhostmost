@@ -1,12 +1,14 @@
 {
-  "name": "lunes-login-bot",
+  "name": "lunes-auto-login",
   "version": "1.0.0",
+  "description": "Auto login to Lunes Dashboard using Puppeteer",
   "main": "login.js",
   "scripts": {
     "start": "node login.js"
   },
+  "author": "your-name",
+  "license": "MIT",
   "dependencies": {
     "puppeteer": "^21.3.8"
   }
 }
-
