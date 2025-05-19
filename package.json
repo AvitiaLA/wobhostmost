@@ -1,1 +1,12 @@
+{
+  "name": "lunes-login-bot",
+  "version": "1.0.0",
+  "main": "login.js",
+  "scripts": {
+    "start": "node login.js"
+  },
+  "dependencies": {
+    "puppeteer": "^21.3.8"
+  }
+}
 
