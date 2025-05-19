@@ -12,44 +12,35 @@ const puppeteer = require('puppeteer');
   await page.goto('https://betadash.lunes.host/login', { waitUntil: 'networkidle2' });
 
   console.log('⏳ 等待验证区域加载...');
-  await page.waitForTimeout(10000); // 等待 Cloudflare 验证区域出现
+  await page.waitForTimeout(10000); // 等待验证区域出现
 
-  // 获取 iframe 中的 Cloudflare 验证框
-  const frames = await page.frames();
-  const cfFrame = frames.find(frame => frame.url().includes('challenges.cloudflare.com'));
+  // 优先查找复选框按钮
+  let verifyElement = await page.$('div[class*="mark"]');
 
-  if (!cfFrame) {
-    console.error('❌ 未找到 Cloudflare 验证 iframe');
-    await browser.close();
-    return;
-  }
-
-  // 防止点击 Cloudflare logo 区域
-  await cfFrame.evaluate(() => {
-    document.querySelectorAll('a').forEach(a => {
-      a.addEventListener('click', e => e.preventDefault());
-    });
-  });
-
-  // 点击验证文字区域，避开 logo
-  const verifyText = await cfFrame.$('span[class*="label"]');
-  if (verifyText) {
-    await verifyText.click();
-    console.log('✅ 已点击验证区域');
+  if (verifyElement) {
+    await verifyElement.click();
+    console.log('✅ 已点击复选框按钮');
   } else {
-    console.error('❌ 未找到验证点击区域');
-    await browser.close();
-    return;
+    // 备选：点击“Verify you are human”文字区域
+    const [label] = await page.$x("//span[contains(text(), 'Verify you are human')]");
+    if (label) {
+      await label.click();
+      console.log('✅ 已点击文字验证区域');
+    } else {
+      console.error('❌ 未找到验证点击区域');
+      await page.screenshot({ path: 'verify-element-not-found.png' });
+      await browser.close();
+      return;
+    }
   }
 
-  // 等待验证成功文字出现（Success）
+  // 等待“Success”文字出现，表示验证成功
   try {
-    await cfFrame.waitForFunction(() => {
-      return document.body?.innerText?.includes('Success');
-    }, { timeout: 10000 });
+    await page.waitForFunction(() => document.body.innerText.includes('Success'), { timeout: 10000 });
     console.log('🎉 验证通过');
   } catch (e) {
     console.error('❌ 验证未通过');
+    await page.screenshot({ path: 'verify-failed.png' });
     await browser.close();
     return;
   }
