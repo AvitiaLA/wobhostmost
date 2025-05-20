@@ -1,86 +1,56 @@
-const puppeteer = require('puppeteer');
-const fs = require('fs');
+# login_script.py
+import asyncio
+from playwright.async_api import async_playwright
+from datetime import datetime
+import os
 
-(async () => {
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
+EMAIL = os.getenv("LOGIN_EMAIL", "your@email.com")
+PASSWORD = os.getenv("LOGIN_PASSWORD", "yourpassword")
 
-  const page = await browser.newPage();
+async def main():
+    print("启动浏览器...")
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context()
+        page = await context.new_page()
 
-  console.log('🌐 打开登录页面...');
-  await page.goto('https://betadash.lunes.host/login', { waitUntil: 'networkidle2' });
+        try:
+            print("访问登录页面...")
+            await page.goto("https://betadash.lunes.host", timeout=60000)
 
-  console.log('⏳ 等待验证区域加载...');
-  await page.waitForTimeout(10000);  // 等待10秒，确保验证区域渲染
+            print("等待 Cloudflare Turnstile 验证器...")
+            checkbox = page.frame_locator("iframe[title*='security challenge']").locator("input[type='checkbox']")
+            await checkbox.wait_for(timeout=15000)
+            await checkbox.check()
+            print("已通过 Cloudflare 人机验证")
 
-  // 保存页面源码调试
-  const html = await page.content();
-  fs.writeFileSync('page-content.html', html);
-  console.log('📝 页面源码已保存');
+            print("填写邮箱和密码...")
+            email_input = page.locator("input[type='email']")
+            password_input = page.locator("input[type='password']")
 
-  // 截图验证区域
-  await page.screenshot({ path: 'verify-area.png' });
-  console.log('📝 验证区域截图已保存');
+            await email_input.fill(EMAIL)
+            await password_input.fill(PASSWORD)
 
-  // 优先找到复选框（input[type=checkbox]）
-  const checkbox = await page.$('input[type="checkbox"]');
+            print("点击提交按钮...")
+            await page.get_by_role("button", name="Submit").click()
 
-  if (!checkbox) {
-    console.error('❌ 未找到复选框');
-    await browser.close();
-    return;
-  }
+            print("等待登录结果...")
+            await page.wait_for_url("https://betadash.lunes.host/", timeout=20000)
 
-  // 点击复选框
-  await checkbox.click();
-  console.log('✅ 已点击复选框');
+            print("[✅] 登录成功！")
 
-  // 等待文字从“Verify you are human”变为“Success”，最多等待10秒
-  try {
-    await page.waitForFunction(() => {
-      const el = document.querySelector('label');
-      return el && el.innerText.includes('Success');
-    }, { timeout: 10000 });
-    console.log('🎉 验证通过');
-  } catch {
-    console.error('❌ 验证未通过');
-    await page.screenshot({ path: 'verify-failed.png' });
-    await browser.close();
-    return;
-  }
+        except Exception as e:
+            print(f"[错误] 登录过程出错：{e}")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            screenshot_path = f"error_{timestamp}.png"
+            try:
+                await page.screenshot(path=screenshot_path)
+                print(f"截图保存到 {screenshot_path} 以便排查...")
+            except:
+                print("截图失败")
 
-  // 继续登录流程
-  const email = process.env.EMAIL;
-  const password = process.env.PASSWORD;
+        finally:
+            await browser.close()
 
-  if (!email || !password) {
-    console.error('❌ 缺少 EMAIL 或 PASSWORD 环境变量');
-    await browser.close();
-    return;
-  }
-
-  console.log('📝 填写账号密码...');
-  await page.type('input[type="email"]', email, { delay: 100 });
-  await page.type('input[type="password"]', password, { delay: 100 });
-
-  // 点击登录按钮
-  const submitBtn = await page.$('button[type="submit"]');
-  if (submitBtn) {
-    await submitBtn.click();
-    console.log('🚀 已点击登录按钮');
-  } else {
-    console.error('❌ 未找到登录按钮');
-    await browser.close();
-    return;
-  }
-
-  console.log('⏳ 等待页面加载完成...');
-  await page.waitForTimeout(7000);  // 等待7秒确保页面加载完成
-
-  await page.screenshot({ path: 'login-success.png' });
-  console.log('✅ 登录成功，截图已保存');
-
-  await browser.close();
-})();
+if __name__ == "__main__":
+    asyncio.run(main())
